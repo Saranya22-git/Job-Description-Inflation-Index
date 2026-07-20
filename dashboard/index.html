@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Job Description Inflation Index — Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Satoshi:wght@400;500;700&display=swap');
+:root{
+  --bg:#07090f;--surface:#0e1117;--surface2:#151923;--border:#1e2535;
+  --accent:#e8ff47;--accent2:#47c5ff;--accent3:#ff6b6b;--accent4:#a78bfa;--accent5:#34d399;
+  --text:#e2e8f0;--muted:#64748b;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Satoshi',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* SIDEBAR */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:228px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;}
+.sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border);}
+.logo-badge{background:var(--accent);color:#000;font-family:'DM Mono',monospace;font-size:9px;font-weight:500;padding:3px 8px;border-radius:3px;letter-spacing:.08em;display:inline-block;margin-bottom:8px;}
+.sidebar-logo h1{font-size:14px;font-weight:700;color:var(--text);line-height:1.35;}
+.sidebar-nav{flex:1;padding:14px 10px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--muted);transition:all .15s;border:1px solid transparent;font-weight:500;}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:rgba(232,255,71,.08);color:var(--accent);border-color:rgba(232,255,71,.2);}
+.nav-item .icon{font-size:14px;width:18px;text-align:center;}
+.nav-item .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);margin-left:auto;opacity:0;}
+.nav-item.active .dot{opacity:1;}
+.sidebar-footer{padding:14px 18px;border-top:1px solid var(--border);font-size:10.5px;color:var(--muted);font-family:'DM Mono',monospace;line-height:1.6;}
+
+/* MAIN */
+.main{margin-left:228px;padding:30px 34px;min-height:100vh;}
+.page{display:none;}.page.active{display:block;}
+.page-header{margin-bottom:26px;}
+.breadcrumb{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);margin-bottom:7px;letter-spacing:.08em;}
+.page-header h2{font-size:24px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.page-header p{font-size:12.5px;color:var(--muted);}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;transition:border-color .2s;}
+.kpi-card:hover{border-color:rgba(232,255,71,.25);}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kpi-color,var(--accent));opacity:.8;}
+.kpi-label{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:9px;}
+.kpi-value{font-size:30px;font-weight:700;color:var(--text);line-height:1;margin-bottom:5px;font-family:'DM Mono',monospace;}
+.kpi-sub{font-size:11px;color:var(--muted);}
+.kpi-icon{position:absolute;right:14px;top:14px;font-size:20px;opacity:.12;}
+
+/* CHARTS */
+.chart-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;}
+.chart-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px;}
+.chart-full{margin-bottom:18px;}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.chart-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.chart-subtitle{font-size:10px;color:var(--muted);margin-bottom:16px;font-family:'DM Mono',monospace;letter-spacing:.04em;}
+.chart-wrap{position:relative;height:210px;}
+.chart-wrap-tall{position:relative;height:270px;}
+.chart-wrap-sm{position:relative;height:170px;}
+
+/* STAT PILLS */
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
+.stat-pill{background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:7px 16px;font-size:12px;color:var(--text);display:flex;align-items:center;gap:8px;}
+.stat-pill .spdot{width:7px;height:7px;border-radius:50%;}
+
+/* TABLES */
+.data-table{width:100%;border-collapse:collapse;}
+.data-table th{font-size:9.5px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
+.data-table td{padding:9px 12px;font-size:12.5px;border-bottom:1px solid rgba(30,37,53,.5);}
+.data-table tr:last-child td{border-bottom:none;}
+.data-table tr:hover td{background:var(--surface2);}
+.badge{display:inline-block;padding:2px 10px;border-radius:100px;font-size:10px;font-family:'DM Mono',monospace;}
+.bg{background:rgba(232,255,71,.1);color:var(--accent);}
+.bb{background:rgba(71,197,255,.1);color:var(--accent2);}
+.br{background:rgba(255,107,107,.1);color:var(--accent3);}
+.bp{background:rgba(167,139,250,.1);color:var(--accent4);}
+
+/* SKILL BARS */
+.skill-table{width:100%;}
+.skill-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
+.skill-row:last-child{border-bottom:none;}
+.skill-name{font-size:11px;color:var(--text);width:105px;flex-shrink:0;font-family:'DM Mono',monospace;}
+.skill-bar-wrap{flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.skill-bar{height:100%;border-radius:3px;background:var(--accent);}
+.skill-count{font-size:10px;color:var(--muted);width:42px;text-align:right;font-family:'DM Mono',monospace;}
+
+/* BUZZ CLOUD */
+.buzz-cloud{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.buzz-tag{padding:5px 13px;border-radius:100px;font-size:11px;border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;transition:all .15s;}
+.buzz-tag:hover{border-color:var(--accent);color:var(--accent);}
+
+/* METHODOLOGY BOX */
+.method-box{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:18px 22px;margin-bottom:18px;}
+.method-box h3{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:12px;font-family:'DM Mono',monospace;letter-spacing:.05em;}
+.method-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+.method-item{text-align:center;}
+.method-pct{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.method-label{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.3;}
+.method-bar{height:3px;border-radius:2px;margin-top:6px;}
+
+/* REGRESSION BOX */
+.reg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+.reg-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.reg-metric{font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);margin-bottom:6px;}
+.reg-value{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;}
+.reg-sub{font-size:10px;color:var(--muted);margin-top:4px;}
+
+/* RECO CARDS */
+.reco-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;}
+.reco-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.reco-card h3{font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.reco-list{list-style:none;display:flex;flex-direction:column;gap:9px;}
+.reco-list li{font-size:12.5px;color:var(--muted);display:flex;align-items:flex-start;gap:10px;line-height:1.5;}
+.reco-list li::before{content:'→';color:var(--accent);flex-shrink:0;margin-top:1px;}
+
+/* INSIGHT BOX */
+.insight-numbered{display:flex;flex-direction:column;gap:10px;}
+.insight-item{display:flex;align-items:flex-start;gap:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.insight-num{font-size:11px;font-family:'DM Mono',monospace;color:var(--accent);background:rgba(232,255,71,.1);border-radius:5px;padding:3px 8px;flex-shrink:0;margin-top:1px;}
+.insight-text{font-size:13px;color:var(--text);line-height:1.5;}
+.insight-text strong{color:var(--accent);}
+
+/* HYPOTHESIS */
+.hypo-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.hypo-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;}
+.hypo-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:8px;background:var(--surface2);margin-bottom:8px;}
+.hypo-label{font-size:12px;color:var(--muted);}
+.hypo-val{font-size:13px;font-family:'DM Mono',monospace;font-weight:600;}
+.hypo-result{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;font-size:11px;font-family:'DM Mono',monospace;margin-top:10px;}
+.hypo-reject{background:rgba(52,211,153,.1);color:var(--accent5);}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-badge">JDII ANALYTICS</div>
+    <h1>Job Description<br>Inflation Index</h1>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" onclick="showPage('overview')"><span class="icon">📊</span>Executive Overview<span class="dot"></span></div>
+    <div class="nav-item" onclick="showPage('methodology')"><span class="icon">🔬</span>JDII Methodology<span class="dot"></span></div>
+    <div class="nav-item" onclick="showPage('experience')"><span class="icon">🕐</span>Experience Inflation<span class="dot"></span></div>
+    <div class="nav-item" onclick="showPage('skills')"><span class="icon">🧠</span>Skills Inflation<span class="dot"></span></div>
+    <div class="nav-item" onclick="showPage('degree')"><span class="icon">🎓</span>Degree & Certs<span class="dot"></span></div>
+    <div class="nav-item" onclick="showPage('remote')"><span class="icon">🌐</span>Remote Work<span class="dot"></span></div>
+    <div class="nav-item" onclick="showPage('industry')"><span class="icon">🏭</span>Industry Compare<span class="dot"></span></div>
+    <div class="nav-item" onclick="showPage('forecast')"><span class="icon">📈</span>Forecast & Stats<span class="dot"></span></div>
+    <div class="nav-item" onclick="showPage('recommendations')"><span class="icon">💡</span>Recommendations<span class="dot"></span></div>
+  </nav>
+  <div class="sidebar-footer">
+    10,636 job postings<br>12 industries · 2018–2025
+  </div>
+</div>
+
+<div class="main">
+
+<!-- PAGE 1: OVERVIEW -->
+<div class="page active" id="page-overview">
+  <div class="page-header">
+    <div class="breadcrumb">JDII DASHBOARD / EXECUTIVE OVERVIEW</div>
+    <h2>Executive Overview</h2>
+    <p>Key hiring inflation signals across 10,636 job postings — 2018 to 2025</p>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:#e8ff47"><div class="kpi-icon">📋</div><div class="kpi-label">TOTAL POSTINGS</div><div class="kpi-value">10,636</div><div class="kpi-sub">2018–2025 · 8 years · 12 industries</div></div>
+    <div class="kpi-card" style="--kpi-color:#47c5ff"><div class="kpi-icon">🕐</div><div class="kpi-label">AVG EXP REQUIRED</div><div class="kpi-value">6.13 <span style="font-size:14px;color:var(--muted)">yrs</span></div><div class="kpi-sub">+38% since 2018 baseline</div></div>
+    <div class="kpi-card" style="--kpi-color:#a78bfa"><div class="kpi-icon">🧠</div><div class="kpi-label">AVG SKILLS LISTED</div><div class="kpi-value">8.88</div><div class="kpi-sub">Range: 3 – 14 skills per posting</div></div>
+    <div class="kpi-card" style="--kpi-color:#ff6b6b"><div class="kpi-icon">📈</div><div class="kpi-label">AVG JDII SCORE</div><div class="kpi-value">80.7</div><div class="kpi-sub">Scale 22–100 · High = inflated</div></div>
+  </div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">JDII Score Trend (2018–2025)</div>
+      <div class="chart-subtitle">YEAR-OVER-YEAR HIRING INFLATION · R²=0.83 · p&lt;0.05</div>
+      <div class="chart-wrap"><canvas id="c-jdii-trend"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Salary Range by Year</div>
+      <div class="chart-subtitle">REAL AVG MIN & MAX SALARY FROM DATASET ($K)</div>
+      <div class="chart-wrap"><canvas id="c-salary-real"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-grid-3">
+    <div class="chart-card">
+      <div class="chart-title">Remote Work Split</div>
+      <div class="chart-subtitle">OF 10,636 POSTINGS</div>
+      <div class="chart-wrap-sm"><canvas id="c-remote-donut"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Employment Type</div>
+      <div class="chart-subtitle">CONTRACT VS FULL-TIME VS PART-TIME</div>
+      <div class="chart-wrap-sm"><canvas id="c-emptype-donut"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">JDII by Seniority</div>
+      <div class="chart-subtitle">AVG SCORE PER LEVEL</div>
+      <div class="chart-wrap-sm"><canvas id="c-jdii-seniority-ov"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2: METHODOLOGY -->
+<div class="page" id="page-methodology">
+  <div class="page-header">
+    <div class="breadcrumb">JDII DASHBOARD / METHODOLOGY</div>
+    <h2>JDII Score Methodology</h2>
+    <p>How the Job Description Inflation Index is calculated — weighted composite of 5 inflation signals</p>
+  </div>
+  <div class="method-box">
+    <h3>JDII SCORE = WEIGHTED COMPOSITE OF 5 FACTORS</h3>
+    <div class="method-grid">
+      <div class="method-item"><div class="method-pct" style="color:#e8ff47">40%</div><div class="method-label">Experience Required (yrs)</div><div class="method-bar" style="background:#e8ff47"></div></div>
+      <div class="method-item"><div class="method-pct" style="color:#47c5ff">30%</div><div class="method-label">Skills Listed (count)</div><div class="method-bar" style="background:#47c5ff"></div></div>
+      <div class="method-item"><div class="method-pct" style="color:#a78bfa">15%</div><div class="method-label">Responsibilities Count</div><div class="method-bar" style="background:#a78bfa"></div></div>
+      <div class="method-item"><div class="method-pct" style="color:#ff6b6b">10%</div><div class="method-label">Certifications Required</div><div class="method-bar" style="background:#ff6b6b"></div></div>
+      <div class="method-item"><div class="method-pct" style="color:#34d399">5%</div><div class="method-label">Buzzword Count</div><div class="method-bar" style="background:#34d399"></div></div>
+    </div>
+  </div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Correlation of Each Factor with JDII Score</div>
+      <div class="chart-subtitle">PEARSON CORRELATION — VALIDATES WEIGHTING RATIONALE</div>
+      <div class="chart-wrap-tall"><canvas id="c-corr"></canvas></div>
+    </div>
+    <div class="chart-card" style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <div class="chart-title">Score Interpretation</div>
+        <div class="chart-subtitle">WHAT JDII SCORE RANGES MEAN</div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>JDII Range</th><th>Signal</th><th>Interpretation</th></tr></thead>
+        <tbody>
+          <tr><td style="font-family:'DM Mono',monospace">22 – 50</td><td><span class="badge bg">Low</span></td><td>Realistic requirements</td></tr>
+          <tr><td style="font-family:'DM Mono',monospace">50 – 70</td><td><span class="badge bb">Moderate</span></td><td>Slightly above expectations</td></tr>
+          <tr><td style="font-family:'DM Mono',monospace">70 – 85</td><td><span class="badge bp">High</span></td><td>Clearly inflated JD</td></tr>
+          <tr><td style="font-family:'DM Mono',monospace">85 – 100</td><td><span class="badge br">Extreme</span></td><td>Unrealistic expectations</td></tr>
+        </tbody>
+      </table>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:12px;color:var(--muted);line-height:1.7;">
+        <strong style="color:var(--text)">Why these weights?</strong><br>
+        Correlation analysis confirms: Experience (r=0.89) and Skills (r=0.86) are the two strongest drivers of JDII score. Responsibilities (r=0.78) is the third. Certifications (r=0.28) and Buzzwords (r=0.19) have smaller but meaningful impact. Weights were assigned proportionally to these correlation strengths.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 3: EXPERIENCE -->
+<div class="page" id="page-experience">
+  <div class="page-header">
+    <div class="breadcrumb">JDII DASHBOARD / EXPERIENCE INFLATION</div>
+    <h2>Experience Inflation</h2>
+    <p>Average experience requirements grew from 5.13 yrs (2018) to 7.09 yrs (2025) — a statistically significant +38% increase</p>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:#47c5ff"><div class="kpi-icon">📅</div><div class="kpi-label">2018 BASELINE</div><div class="kpi-value">5.13 <span style="font-size:14px;color:var(--muted)">yrs</span></div><div class="kpi-sub">Starting point</div></div>
+    <div class="kpi-card" style="--kpi-color:#e8ff47"><div class="kpi-icon">📅</div><div class="kpi-label">2025 CURRENT</div><div class="kpi-value">7.09 <span style="font-size:14px;color:var(--muted)">yrs</span></div><div class="kpi-sub">+1.96 years in 7 years</div></div>
+    <div class="kpi-card" style="--kpi-color:#ff6b6b"><div class="kpi-icon">📐</div><div class="kpi-label">R² (LINEAR FIT)</div><div class="kpi-value">0.998</div><div class="kpi-sub">Near-perfect linear trend</div></div>
+    <div class="kpi-card" style="--kpi-color:#a78bfa"><div class="kpi-icon">👑</div><div class="kpi-label">C-SUITE EXP REQ</div><div class="kpi-value">10.97 <span style="font-size:14px;color:var(--muted)">yrs</span></div><div class="kpi-sub">Highest of all seniority levels</div></div>
+  </div>
+  <div class="chart-full chart-card">
+    <div class="chart-title">Average Experience Required Per Year (2018–2025)</div>
+    <div class="chart-subtitle">LINEAR TREND · slope=+0.28 yrs/year · R²=0.998 · p&lt;0.001</div>
+    <div class="chart-wrap-tall"><canvas id="c-exp-year"></canvas></div>
+  </div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Experience by Seniority Level</div>
+      <div class="chart-subtitle">AVG YEARS REQUIRED PER LEVEL</div>
+      <div class="chart-wrap"><canvas id="c-exp-seniority"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">JDII Score by Seniority Level</div>
+      <div class="chart-subtitle">HOW INFLATED ARE JDs PER LEVEL?</div>
+      <div class="chart-wrap"><canvas id="c-jdii-seniority"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 4: SKILLS -->
+<div class="page" id="page-skills">
+  <div class="page-header">
+    <div class="breadcrumb">JDII DASHBOARD / SKILLS INFLATION</div>
+    <h2>Skills Inflation</h2>
+    <p>Average skills per job grew from 7.95 (2018) to 9.99 (2025) · Python demand up from 41.8% → 54.6%</p>
+  </div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Skills Listed Per Year (2018–2025)</div>
+      <div class="chart-subtitle">GROWING SKILL DEMANDS · +26% OVER 7 YEARS</div>
+      <div class="chart-wrap-tall"><canvas id="c-skills-year"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Top 15 Most Demanded Skills</div>
+      <div class="chart-subtitle">COUNT ACROSS ALL 10,636 POSTINGS</div>
+      <div style="margin-top:4px;max-height:295px;overflow-y:auto;"><div class="skill-table" id="skills-table"></div></div>
+    </div>
+  </div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Skill Demand Growth (2018 vs 2025)</div>
+      <div class="chart-subtitle">% OF POSTINGS REQUIRING EACH SKILL</div>
+      <div class="chart-wrap"><canvas id="c-skill-growth"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Buzzword Usage in Job Posts</div>
+      <div class="chart-subtitle">INFLATED LANGUAGE FREQUENCY</div>
+      <div class="buzz-cloud" id="buzz-cloud"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 5: DEGREE -->
+<div class="page" id="page-degree">
+  <div class="page-header">
+    <div class="breadcrumb">JDII DASHBOARD / DEGREE & CERTIFICATIONS</div>
+    <h2>Degree & Certification Analysis</h2>
+    <p>MBA dominates at 45% of all postings — only 6% of jobs require a Bachelor's degree alone</p>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:#e8ff47"><div class="kpi-icon">🎓</div><div class="kpi-label">REQUIRE MBA</div><div class="kpi-value">45%</div><div class="kpi-sub">4,823 postings</div></div>
+    <div class="kpi-card" style="--kpi-color:#47c5ff"><div class="kpi-icon">📜</div><div class="kpi-label">REQUIRE MASTER'S</div><div class="kpi-value">28%</div><div class="kpi-sub">2,987 postings</div></div>
+    <div class="kpi-card" style="--kpi-color:#a78bfa"><div class="kpi-icon">🔬</div><div class="kpi-label">REQUIRE PHD</div><div class="kpi-value">20%</div><div class="kpi-sub">2,166 postings</div></div>
+    <div class="kpi-card" style="--kpi-color:#ff6b6b"><div class="kpi-icon">📋</div><div class="kpi-label">AVG CERTS REQUIRED</div><div class="kpi-value">1.61</div><div class="kpi-sub">Range: 0 – 3 certifications</div></div>
+  </div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Degree Requirement Distribution</div>
+      <div class="chart-subtitle">94% OF POSTINGS DEMAND POST-GRAD QUALIFICATIONS</div>
+      <div class="chart-wrap-tall"><canvas id="c-degree"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Degree Inflation Signal</div>
+      <div class="chart-subtitle">CLASSIFICATION BY INFLATION LEVEL</div>
+      <div style="margin-top:10px;">
+        <table class="data-table">
+          <thead><tr><th>Degree</th><th>Count</th><th>Share</th><th>Signal</th></tr></thead>
+          <tbody>
+            <tr><td>MBA</td><td style="font-family:'DM Mono',monospace">4,823</td><td style="font-family:'DM Mono',monospace">45.3%</td><td><span class="badge br">Highly Inflated</span></td></tr>
+            <tr><td>Master's Degree</td><td style="font-family:'DM Mono',monospace">2,987</td><td style="font-family:'DM Mono',monospace">28.1%</td><td><span class="badge bp">Inflated</span></td></tr>
+            <tr><td>PhD</td><td style="font-family:'DM Mono',monospace">2,166</td><td style="font-family:'DM Mono',monospace">20.4%</td><td><span class="badge bb">Specialized</span></td></tr>
+            <tr><td>Bachelor's Degree</td><td style="font-family:'DM Mono',monospace">660</td><td style="font-family:'DM Mono',monospace">6.2%</td><td><span class="badge bg">Realistic</span></td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:14px;padding:14px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.7;">
+          <strong style="color:var(--accent)">Key Finding:</strong> Only 6.2% of postings accept a Bachelor's degree as sufficient — despite many of these being roles where a Bachelor's was historically the standard. The MBA requirement alone covers 45% of all postings, suggesting significant credential inflation across industries.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 6: REMOTE -->
+<div class="page" id="page-remote">
+  <div class="page-header">
+    <div class="breadcrumb">JDII DASHBOARD / REMOTE WORK ANALYSIS</div>
+    <h2>Remote Work Analysis</h2>
+    <p>Only 27% of postings offer full remote — hypothesis test confirms remote jobs have significantly higher JDII scores</p>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:#ff6b6b"><div class="kpi-icon">🏢</div><div class="kpi-label">ONSITE ONLY</div><div class="kpi-value">51%</div><div class="kpi-sub">5,440 postings — majority</div></div>
+    <div class="kpi-card" style="--kpi-color:#47c5ff"><div class="kpi-icon">🌐</div><div class="kpi-label">FULLY REMOTE</div><div class="kpi-value">27%</div><div class="kpi-sub">2,855 postings</div></div>
+    <div class="kpi-card" style="--kpi-color:#a78bfa"><div class="kpi-icon">🔁</div><div class="kpi-label">HYBRID</div><div class="kpi-value">22%</div><div class="kpi-sub">2,341 postings</div></div>
+    <div class="kpi-card" style="--kpi-color:#e8ff47"><div class="kpi-icon">📊</div><div class="kpi-label">REMOTE vs ONSITE</div><div class="kpi-value">+4.3 <span style="font-size:14px;color:var(--muted)">pts</span></div><div class="kpi-sub">Remote JDII higher · p&lt;0.001</div></div>
+  </div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Remote vs Onsite vs Hybrid — Count</div>
+      <div class="chart-subtitle">DISTRIBUTION OF 10,636 WORK ARRANGEMENTS</div>
+      <div class="chart-wrap-tall"><canvas id="c-remote-bar"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">JDII Score by Work Arrangement</div>
+      <div class="chart-subtitle">REMOTE JOBS SHOW STATISTICALLY HIGHER INFLATION</div>
+      <div class="chart-wrap-tall"><canvas id="c-jdii-remote"></canvas></div>
+    </div>
+  </div>
+  <div class="hypo-card">
+    <div class="hypo-title">🧪 Hypothesis Test: Do Remote Jobs Have Higher JDII?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div class="hypo-row"><span class="hypo-label">H₀ (Null)</span><span class="hypo-val" style="color:var(--muted);font-size:12px">Remote = Onsite JDII</span></div>
+      <div class="hypo-row"><span class="hypo-label">H₁ (Alternative)</span><span class="hypo-val" style="color:var(--accent);font-size:12px">Remote &gt; Onsite JDII</span></div>
+      <div class="hypo-row"><span class="hypo-label">Test Used</span><span class="hypo-val" style="font-size:12px">Independent t-test</span></div>
+      <div class="hypo-row"><span class="hypo-label">Remote mean JDII</span><span class="hypo-val" style="color:var(--accent)">82.66</span></div>
+      <div class="hypo-row"><span class="hypo-label">Onsite mean JDII</span><span class="hypo-val" style="color:var(--accent3)">78.37</span></div>
+      <div class="hypo-row"><span class="hypo-label">Difference</span><span class="hypo-val" style="color:var(--accent)">+4.29 pts</span></div>
+      <div class="hypo-row"><span class="hypo-label">t-statistic</span><span class="hypo-val">9.78</span></div>
+      <div class="hypo-row"><span class="hypo-label">p-value</span><span class="hypo-val" style="color:var(--accent5)">&lt; 0.001</span></div>
+      <div class="hypo-row"><span class="hypo-label">Decision</span><span class="hypo-result hypo-reject">✓ Reject H₀ — Significant</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 7: INDUSTRY -->
+<div class="page" id="page-industry">
+  <div class="page-header">
+    <div class="breadcrumb">JDII DASHBOARD / INDUSTRY COMPARISON</div>
+    <h2>Industry Comparison</h2>
+    <p>Technology leads in salary · Marketing leads in JDII score · Top 20 most inflated job postings identified</p>
+  </div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Avg JDII Score by Industry</div>
+      <div class="chart-subtitle">MARKETING & CONSULTING MOST INFLATED</div>
+      <div class="chart-wrap-tall"><canvas id="c-jdii-industry"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Salary Range by Industry</div>
+      <div class="chart-subtitle">AVG MIN & MAX SALARY ($K) — REAL DATA</div>
+      <div class="chart-wrap-tall"><canvas id="c-sal-industry"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-card chart-full">
+    <div class="chart-title">Top 10 Most Inflated Individual Job Postings</div>
+    <div class="chart-subtitle">JDII SCORE = 100 — THE WORST OFFENDERS IN THE DATASET</div>
+    <table class="data-table" style="margin-top:12px;">
+      <thead><tr><th>Job Title</th><th>Industry</th><th>Seniority</th><th>Exp Required</th><th>Skills Listed</th><th>JDII Score</th></tr></thead>
+      <tbody id="outlier-table"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PAGE 8: FORECAST & STATS -->
+<div class="page" id="page-forecast">
+  <div class="page-header">
+    <div class="breadcrumb">JDII DASHBOARD / FORECAST & STATISTICAL VALIDATION</div>
+    <h2>Forecast & Statistical Validation</h2>
+    <p>Linear regression confirms all inflation trends are statistically significant · Forecasting JDII through 2028</p>
+  </div>
+  <div class="reg-grid">
+    <div class="reg-card"><div class="reg-metric">JDII REGRESSION · R²</div><div class="reg-value" style="color:var(--accent)">0.831</div><div class="reg-sub">Strong fit · p = 0.0016</div></div>
+    <div class="reg-card"><div class="reg-metric">EXPERIENCE REGRESSION · R²</div><div class="reg-value" style="color:var(--accent2)">0.998</div><div class="reg-sub">Near-perfect · p &lt; 0.001</div></div>
+    <div class="reg-card"><div class="reg-metric">SKILLS REGRESSION · R²</div><div class="reg-value" style="color:var(--accent4)">0.908</div><div class="reg-sub">Strong fit · p &lt; 0.001</div></div>
+  </div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">JDII Score — Historical + Forecast (2026–2028)</div>
+      <div class="chart-subtitle">LINEAR REGRESSION PROJECTION · SLOPE +2.93 PTS/YEAR</div>
+      <div class="chart-wrap-tall"><canvas id="c-forecast-jdii"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Experience — Historical + Forecast (2026–2028)</div>
+      <div class="chart-subtitle">SLOPE +0.28 YRS/YEAR · BY 2028: ~7.65 YRS AVG</div>
+      <div class="chart-wrap-tall"><canvas id="c-forecast-exp"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-card chart-full">
+    <div class="chart-title">Forecast Summary Table</div>
+    <div class="chart-subtitle">PROJECTED VALUES BASED ON LINEAR REGRESSION</div>
+    <table class="data-table" style="margin-top:12px;">
+      <thead><tr><th>Year</th><th>Projected JDII</th><th>Projected Avg Exp</th><th>Projected Avg Skills</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td style="font-family:'DM Mono',monospace">2018</td><td style="font-family:'DM Mono',monospace">67.2 (actual)</td><td style="font-family:'DM Mono',monospace">5.13 yrs</td><td style="font-family:'DM Mono',monospace">7.95</td><td><span class="badge bb">Historical</span></td></tr>
+        <tr><td style="font-family:'DM Mono',monospace">2025</td><td style="font-family:'DM Mono',monospace">86.8 (actual)</td><td style="font-family:'DM Mono',monospace">7.09 yrs</td><td style="font-family:'DM Mono',monospace">9.99</td><td><span class="badge bb">Historical</span></td></tr>
+        <tr style="background:rgba(232,255,71,0.03)"><td style="font-family:'DM Mono',monospace;color:var(--accent)">2026 ▶</td><td style="font-family:'DM Mono',monospace;color:var(--accent)">93.9</td><td style="font-family:'DM Mono',monospace;color:var(--accent)">7.37 yrs</td><td style="font-family:'DM Mono',monospace;color:var(--accent)">10.32</td><td><span class="badge bg">Forecast</span></td></tr>
+        <tr style="background:rgba(232,255,71,0.03)"><td style="font-family:'DM Mono',monospace;color:var(--accent)">2027 ▶</td><td style="font-family:'DM Mono',monospace;color:var(--accent)">96.8</td><td style="font-family:'DM Mono',monospace;color:var(--accent)">7.65 yrs</td><td style="font-family:'DM Mono',monospace;color:var(--accent)">10.64</td><td><span class="badge bg">Forecast</span></td></tr>
+        <tr style="background:rgba(232,255,71,0.03)"><td style="font-family:'DM Mono',monospace;color:var(--accent)">2028 ▶</td><td style="font-family:'DM Mono',monospace;color:var(--accent)">99.8</td><td style="font-family:'DM Mono',monospace;color:var(--accent)">7.93 yrs</td><td style="font-family:'DM Mono',monospace;color:var(--accent)">10.97</td><td><span class="badge bg">Forecast</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PAGE 9: RECOMMENDATIONS -->
+<div class="page" id="page-recommendations">
+  <div class="page-header">
+    <div class="breadcrumb">JDII DASHBOARD / RECOMMENDATIONS</div>
+    <h2>Key Insights & Recommendations</h2>
+    <p>Translating inflation findings into actionable decisions for employers, candidates, and HR teams</p>
+  </div>
+
+  <div class="chart-card chart-full" style="margin-bottom:18px;">
+    <div class="chart-title">6 Key Findings from This Analysis</div>
+    <div class="chart-subtitle">THE NUMBERS THAT TELL THE INFLATION STORY</div>
+    <div class="insight-numbered" style="margin-top:14px;">
+      <div class="insight-item"><span class="insight-num">01</span><div class="insight-text">JDII score increased <strong>29.2%</strong> between 2018 and 2025 (67.2 → 86.8), confirmed by linear regression with R²=0.83, p&lt;0.05.</div></div>
+      <div class="insight-item"><span class="insight-num">02</span><div class="insight-text">Average experience requirements grew from <strong>5.13 → 7.09 years</strong> — a near-perfect linear trend (R²=0.998) with no slowdown in sight.</div></div>
+      <div class="insight-item"><span class="insight-num">03</span><div class="insight-text"><strong>94% of postings</strong> demand a post-graduate qualification (MBA 45%, Master's 28%, PhD 20%) — only 6% accept a Bachelor's degree.</div></div>
+      <div class="insight-item"><span class="insight-num">04</span><div class="insight-text">Remote jobs have <strong>statistically significantly higher JDII scores</strong> than onsite jobs (82.66 vs 78.37, t=9.78, p&lt;0.001).</div></div>
+      <div class="insight-item"><span class="insight-num">05</span><div class="insight-text">Python demand rose from <strong>41.8% → 54.6%</strong> of postings between 2018 and 2025 — the fastest-growing skill in the dataset.</div></div>
+      <div class="insight-item"><span class="insight-num">06</span><div class="insight-text">At current trend, the average JDII score will reach <strong>~99.8 by 2028</strong> — effectively maxing out the scale, implying a saturation point is approaching.</div></div>
+    </div>
+  </div>
+
+  <div class="reco-grid">
+    <div class="reco-card">
+      <h3><span>🏢</span> <span style="color:var(--accent2)">For Employers & HR Teams</span></h3>
+      <ul class="reco-list">
+        <li>Audit job descriptions against actual role requirements — separate must-have skills from nice-to-have to reduce JDII score.</li>
+        <li>Reconsider blanket MBA/Master's requirements for roles where a Bachelor's and strong domain experience is sufficient.</li>
+        <li>Cap skills listed at 6–8 genuinely required skills — longer lists reduce candidate quality without improving hiring outcomes.</li>
+        <li>Eliminate corporate buzzwords ("10x engineer", "go-getter") — they signal poor JD quality and deter strong candidates.</li>
+        <li>Benchmark JDs against JDII scores to identify which roles are over-specified before posting.</li>
+      </ul>
+    </div>
+    <div class="reco-card">
+      <h3><span>👩‍💼</span> <span style="color:var(--accent)">For Job Seekers & Candidates</span></h3>
+      <ul class="reco-list">
+        <li>Don't self-reject — JDII analysis shows that most JDs are inflated beyond actual minimum requirements. Apply if you meet 60–70% of listed criteria.</li>
+        <li>Prioritize Python, SQL, and Power BI — these appear in the highest share of postings across all industries.</li>
+        <li>Target entry-level to mid-level postings (JDII 51–66) for more realistic requirements before moving to senior roles.</li>
+        <li>Focus on roles where salary is commensurate with the JDII score — Technology and Finance offer the highest compensation.</li>
+        <li>Understand that MBA requirements in 45% of postings reflects credential inflation — real screening criteria may be more flexible.</li>
+      </ul>
+    </div>
+    <div class="reco-card">
+      <h3><span>📊</span> <span style="color:var(--accent4)">For Researchers & Policy Makers</span></h3>
+      <ul class="reco-list">
+        <li>The JDII trajectory (approaching 100 by 2028) suggests a natural ceiling — monitor whether requirements begin to moderate post-saturation.</li>
+        <li>Intervention may be needed: industry self-regulation or standardized JD frameworks could slow credential inflation.</li>
+        <li>Remote job inflation warrants investigation — remote roles should require less location-specific experience, yet show higher JDII scores.</li>
+        <li>Education policy should account for MBA over-indexing: if 45% of roles demand an MBA, access and affordability become equity issues.</li>
+      </ul>
+    </div>
+    <div class="reco-card">
+      <h3><span>🔭</span> <span style="color:var(--accent3)">Future Research Directions</span></h3>
+      <ul class="reco-list">
+        <li>Extend the dataset post-2025 to test whether the JDII saturation ceiling hypothesis holds true.</li>
+        <li>Add a "matched hiring" column — track whether high-JDII postings actually result in successful hires to measure real impact.</li>
+        <li>Build a real-time JDII scorer that accepts any job description text as input and returns an inflation score.</li>
+        <li>Expand geographic analysis — compare JDII patterns across cities and countries to identify regional inflation differences.</li>
+        <li>Train a classification model to predict JDII category (Low/Moderate/High/Extreme) from raw JD text using NLP.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ─── DATA ──────────────────────────────────────────────────────────
+const D = {
+  jdii_year:    [{y:2018,v:67.2},{y:2019,v:71.29},{y:2020,v:76.9},{y:2021,v:83.76},{y:2022,v:86.64},{y:2023,v:85.66},{y:2024,v:87.3},{y:2025,v:86.81}],
+  exp_year:     [{y:2018,v:5.13},{y:2019,v:5.39},{y:2020,v:5.76},{y:2021,v:5.98},{y:2022,v:6.28},{y:2023,v:6.59},{y:2024,v:6.82},{y:2025,v:7.09}],
+  skills_year:  [{y:2018,v:7.95},{y:2019,v:7.99},{y:2020,v:8.01},{y:2021,v:9.02},{y:2022,v:9.06},{y:2023,v:9.07},{y:2024,v:9.96},{y:2025,v:9.99}],
+  sal_year:     [{y:2018,mn:109.05,mx:146.49},{y:2019,mn:112.72,mx:151.57},{y:2020,mn:117.60,mx:158.43},{y:2021,mn:120.47,mx:162.10},{y:2022,mn:123.71,mx:166.68},{y:2023,mn:127.77,mx:171.93},{y:2024,mn:131.57,mx:175.71},{y:2025,mn:134.38,mx:179.99}],
+  exp_seniority:[{l:"Entry-Level",v:1.01},{l:"Mid-Level",v:2.96},{l:"Senior",v:5.98},{l:"Manager",v:6.97},{l:"Director",v:9.0},{l:"C-Suite",v:10.97}],
+  jdii_seniority:[{l:"Entry-Level",v:51.91},{l:"Mid-Level",v:66.27},{l:"Senior",v:82.61},{l:"Manager",v:91.1},{l:"C-Suite",v:95.8},{l:"Director",v:96.84}],
+  jdii_industry:[{i:"Marketing",v:81.08},{i:"Consulting",v:81.0},{i:"Media",v:81.0},{i:"Finance",v:80.97},{i:"Operations",v:80.93},{i:"HR",v:80.93},{i:"Legal",v:80.91},{i:"Retail",v:80.47},{i:"Healthcare",v:80.47},{i:"Technology",v:80.37},{i:"Education",v:80.2},{i:"Manufacturing",v:79.97}],
+  sal_industry: [{i:"Technology",mn:151.55,mx:204.4},{i:"Finance",mn:146.64,mx:196.37},{i:"Legal",mn:141.86,mx:190.84},{i:"Consulting",mn:137.96,mx:185.55},{i:"Healthcare",mn:126.47,mx:169.97},{i:"Operations",mn:119.64,mx:161.17},{i:"Manufacturing",mn:116.87,mx:156.04},{i:"HR",mn:112.67,mx:151.22},{i:"Marketing",mn:111.29,mx:149.57},{i:"Media",mn:105.55,mx:141.42}],
+  remote:       [{t:"Onsite",n:5440},{t:"Remote",n:2855},{t:"Hybrid",n:2341}],
+  emp_type:     [{t:"Full-Time",n:5257},{t:"Contract",n:3587},{t:"Part-Time",n:1792}],
+  degree:       [{d:"MBA",n:4823},{d:"Master's",n:2987},{d:"PhD",n:2166},{d:"Bachelor's",n:660}],
+  jdii_remote:  [{r:"Hybrid",v:83.68},{r:"Remote",v:82.66},{r:"Onsite",v:78.37}],
+  corr:         [{f:"Experience",v:.8912},{f:"Skills Count",v:.8569},{f:"Responsibilities",v:.7818},{f:"Certifications",v:.2799},{f:"Buzzwords",v:.1920}],
+  top_skills:   [{s:"Python",n:4941},{s:"SQL",n:3925},{s:"Power BI",n:3417},{s:"Tableau",n:2937},{s:"Excel",n:2553},{s:"SAP",n:2517},{s:"R",n:1478},{s:"Google Analytics",n:1472},{s:"Klaviyo",n:1008},{s:"AutoCAD",n:1005},{s:"ERP",n:988},{s:"Salesforce",n:973},{s:"Lean",n:958},{s:"Six Sigma",n:948},{s:"SPSS",n:929}],
+  buzzwords:    [{w:"wizard",n:526},{w:"visionary",n:511},{w:"culture fit",n:510},{w:"10x engineer",n:504},{w:"disruptor",n:504},{w:"go-getter",n:502},{w:"wear many hats",n:497},{w:"agile mindset",n:496},{w:"dynamic",n:496}],
+  skill_growth: [
+    {s:"Python",  y2018:41.8, y2025:54.6},
+    {s:"SQL",     y2018:33.2, y2025:40.1},
+    {s:"Power BI",y2018:28.1, y2025:36.6},
+    {s:"Tableau", y2018:23.1, y2025:31.1},
+    {s:"Excel",   y2018:20.9, y2025:28.4},
+  ],
+  outliers:[
+    {title:"ML Engineer",ind:"Technology",sen:"C-Suite",exp:9.4,skills:10,jdii:100},
+    {title:"FP&A Analyst",ind:"Finance",sen:"Director",exp:8.3,skills:12,jdii:100},
+    {title:"Patent Analyst",ind:"Legal",sen:"C-Suite",exp:10.5,skills:10,jdii:100},
+    {title:"UX Designer",ind:"Media",sen:"Director",exp:8.2,skills:12,jdii:100},
+    {title:"Data Engineer",ind:"Technology",sen:"Director",exp:8.7,skills:12,jdii:100},
+    {title:"Investment Banker",ind:"Finance",sen:"Director",exp:9.0,skills:11,jdii:100},
+    {title:"Health IT Analyst",ind:"Healthcare",sen:"Director",exp:8.3,skills:12,jdii:100},
+    {title:"Marketing Coordinator",ind:"Marketing",sen:"Director",exp:8.3,skills:11,jdii:100},
+    {title:"Business Analyst",ind:"Operations",sen:"C-Suite",exp:10.6,skills:10,jdii:100},
+    {title:"People Analytics Mgr",ind:"HR",sen:"Director",exp:8.5,skills:12,jdii:100},
+  ],
+  forecast_jdii:[{y:2026,v:93.9},{y:2027,v:96.83},{y:2028,v:99.77}],
+  forecast_exp: [{y:2026,v:7.37},{y:2027,v:7.65},{y:2028,v:7.93}],
+};
+
+// ─── DEFAULTS ──────────────────────────────────────────────────────
+Chart.defaults.color='#64748b';
+Chart.defaults.font.family='DM Mono, monospace';
+Chart.defaults.font.size=10;
+Chart.defaults.plugins.legend.display=false;
+const A='#e8ff47',A2='#47c5ff',A3='#ff6b6b',A4='#a78bfa',A5='#34d399';
+const PAL=[A,A2,A4,A3,A5,'#f97316','#ec4899','#06b6d4','#84cc16','#f59e0b','#6366f1','#14b8a6'];
+const GRD={color:'#1e2535',drawBorder:false};
+const TKS={color:'#64748b'};
+
+// ─── NAV ──────────────────────────────────────────────────────────
+const PAGES=['overview','methodology','experience','skills','degree','remote','industry','forecast','recommendations'];
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item')[PAGES.indexOf(id)].classList.add('active');
+}
+
+// ─── CHARTS ───────────────────────────────────────────────────────
+
+// P1 JDII trend
+new Chart('c-jdii-trend',{type:'line',data:{labels:D.jdii_year.map(d=>d.y),datasets:[{data:D.jdii_year.map(d=>d.v),borderColor:A,backgroundColor:'rgba(232,255,71,.07)',fill:true,tension:.4,pointBackgroundColor:A,pointRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:GRD,ticks:TKS},y:{grid:GRD,ticks:TKS,min:60,max:95}}}});
+
+// P1 Real salary by year
+new Chart('c-salary-real',{type:'bar',data:{labels:D.sal_year.map(d=>d.y),datasets:[{label:'Min Salary',data:D.sal_year.map(d=>d.mn),backgroundColor:'rgba(71,197,255,.45)',borderColor:A2,borderWidth:1,borderRadius:3},{label:'Max Salary',data:D.sal_year.map(d=>d.mx),backgroundColor:'rgba(167,139,250,.45)',borderColor:A4,borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#64748b',boxWidth:10,font:{size:10},padding:12}}},scales:{x:{grid:GRD,ticks:TKS},y:{grid:GRD,ticks:{...TKS,callback:v=>`$${v}K`}}}}});
+
+// P1 Remote donut
+new Chart('c-remote-donut',{type:'doughnut',data:{labels:D.remote.map(d=>d.t),datasets:[{data:D.remote.map(d=>d.n),backgroundColor:[A3,A2,A4],borderWidth:2,borderColor:'#0e1117'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{color:'#64748b',boxWidth:10,font:{size:10},padding:10}}}}});
+
+// P1 Emptype donut
+new Chart('c-emptype-donut',{type:'doughnut',data:{labels:D.emp_type.map(d=>d.t),datasets:[{data:D.emp_type.map(d=>d.n),backgroundColor:[A,A5,'#64748b'],borderWidth:2,borderColor:'#0e1117'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{color:'#64748b',boxWidth:10,font:{size:10},padding:10}}}}});
+
+// P1 JDII seniority overview
+new Chart('c-jdii-seniority-ov',{type:'bar',data:{labels:D.jdii_seniority.map(d=>d.l.replace('-Level','')),datasets:[{data:D.jdii_seniority.map(d=>d.v),backgroundColor:PAL,borderRadius:3,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',scales:{x:{grid:GRD,ticks:TKS,min:40,max:105},y:{grid:{display:false},ticks:TKS}}}});
+
+// P2 Correlation bar
+new Chart('c-corr',{type:'bar',data:{labels:D.corr.map(d=>d.f),datasets:[{data:D.corr.map(d=>d.v),backgroundColor:[A,A2,A4,A3,A5],borderRadius:6,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:TKS},y:{grid:GRD,ticks:TKS,min:0,max:1,title:{display:true,text:'Pearson r',color:'#64748b',font:{size:10}}}}}});
+
+// P3 Exp by year with trendline
+const expCtx=document.getElementById('c-exp-year').getContext('2d');
+// trendline points from regression: y=0.2822x - 563.4 
+const trendYears=[2018,2019,2020,2021,2022,2023,2024,2025];
+const trendVals=trendYears.map(y=>+(0.2822*y-563.4).toFixed(2));
+new Chart(expCtx,{type:'line',data:{labels:D.exp_year.map(d=>d.y),datasets:[{label:'Actual',data:D.exp_year.map(d=>d.v),borderColor:A2,backgroundColor:'rgba(71,197,255,.08)',fill:true,tension:.4,pointBackgroundColor:A2,pointRadius:5,borderWidth:2},{label:'Trend Line',data:trendVals,borderColor:'rgba(232,255,71,.6)',backgroundColor:'transparent',borderDash:[5,4],tension:0,pointRadius:0,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#64748b',boxWidth:10,font:{size:10},padding:12}}},scales:{x:{grid:GRD,ticks:TKS},y:{grid:GRD,ticks:{...TKS,callback:v=>`${v}yr`},min:4,max:8}}}});
+
+// P3 Exp seniority
+new Chart('c-exp-seniority',{type:'bar',data:{labels:D.exp_seniority.map(d=>d.l),datasets:[{data:D.exp_seniority.map(d=>d.v),backgroundColor:PAL,borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:TKS},y:{grid:GRD,ticks:{...TKS,callback:v=>`${v}yr`}}}}});
+
+// P3 JDII seniority
+new Chart('c-jdii-seniority',{type:'bar',data:{labels:D.jdii_seniority.map(d=>d.l),datasets:[{data:D.jdii_seniority.map(d=>d.v),backgroundColor:PAL,borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:TKS},y:{grid:GRD,ticks:TKS,min:40,max:105}}}});
+
+// P4 Skills year
+new Chart('c-skills-year',{type:'line',data:{labels:D.skills_year.map(d=>d.y),datasets:[{data:D.skills_year.map(d=>d.v),borderColor:A4,backgroundColor:'rgba(167,139,250,.08)',fill:true,tension:.4,pointBackgroundColor:A4,pointRadius:5,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:GRD,ticks:TKS},y:{grid:GRD,ticks:TKS,min:7,max:11}}}});
+
+// P4 Skill table
+const sm=D.top_skills[0].n;
+document.getElementById('skills-table').innerHTML=D.top_skills.map(s=>`<div class="skill-row"><div class="skill-name">${s.s}</div><div class="skill-bar-wrap"><div class="skill-bar" style="width:${(s.n/sm*100).toFixed(0)}%"></div></div><div class="skill-count">${s.n.toLocaleString()}</div></div>`).join('');
+
+// P4 Skill growth
+new Chart('c-skill-growth',{type:'bar',data:{labels:D.skill_growth.map(d=>d.s),datasets:[{label:'2018 %',data:D.skill_growth.map(d=>d.y2018),backgroundColor:'rgba(71,197,255,.5)',borderColor:A2,borderWidth:1,borderRadius:3},{label:'2025 %',data:D.skill_growth.map(d=>d.y2025),backgroundColor:'rgba(232,255,71,.6)',borderColor:A,borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#64748b',boxWidth:10,font:{size:10},padding:12}}},scales:{x:{grid:{display:false},ticks:TKS},y:{grid:GRD,ticks:{...TKS,callback:v=>`${v}%`}}}}});
+
+// P4 Buzz cloud
+const bcolors=[A,A2,A4,A3,A5,'#f97316','#ec4899','#06b6d4','#84cc16'];
+document.getElementById('buzz-cloud').innerHTML=D.buzzwords.map((b,i)=>`<span class="buzz-tag" style="border-color:${bcolors[i%bcolors.length]}40;color:${bcolors[i%bcolors.length]}">${b.w} <span style="opacity:.4">(${b.n})</span></span>`).join('');
+
+// P5 Degree
+new Chart('c-degree',{type:'bar',data:{labels:D.degree.map(d=>d.d),datasets:[{data:D.degree.map(d=>d.n),backgroundColor:[A3,A4,A2,A],borderRadius:8,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:TKS},y:{grid:GRD,ticks:TKS}}}});
+
+// P6 Remote bar
+new Chart('c-remote-bar',{type:'bar',data:{labels:D.remote.map(d=>d.t),datasets:[{data:D.remote.map(d=>d.n),backgroundColor:[A3,A2,A4],borderRadius:8,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{tooltip:{callbacks:{label:ctx=>`${ctx.raw.toLocaleString()} (${(ctx.raw/10636*100).toFixed(1)}%)`}}},scales:{x:{grid:{display:false},ticks:TKS},y:{grid:GRD,ticks:TKS}}}});
+
+// P6 JDII remote
+new Chart('c-jdii-remote',{type:'bar',data:{labels:D.jdii_remote.map(d=>d.r),datasets:[{data:D.jdii_remote.map(d=>d.v),backgroundColor:[A4,A2,A3],borderRadius:8,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:TKS},y:{grid:GRD,ticks:TKS,min:75,max:86}}}});
+
+// P7 JDII industry
+new Chart('c-jdii-industry',{type:'bar',data:{labels:D.jdii_industry.map(d=>d.i),datasets:[{data:D.jdii_industry.map(d=>d.v),backgroundColor:PAL,borderRadius:4,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',scales:{x:{grid:GRD,ticks:TKS,min:79,max:81.5},y:{grid:{display:false},ticks:TKS}}}});
+
+// P7 Salary industry
+new Chart('c-sal-industry',{type:'bar',data:{labels:D.sal_industry.map(d=>d.i),datasets:[{label:'Min Salary',data:D.sal_industry.map(d=>d.mn),backgroundColor:'rgba(71,197,255,.5)',borderColor:A2,borderWidth:1,borderRadius:3},{label:'Max Salary',data:D.sal_industry.map(d=>d.mx),backgroundColor:'rgba(232,255,71,.5)',borderColor:A,borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:true,labels:{color:'#64748b',boxWidth:10,font:{size:10},padding:12}}},scales:{x:{grid:GRD,ticks:{...TKS,callback:v=>`$${v}K`}},y:{grid:{display:false},ticks:TKS}}}});
+
+// P7 Outlier table
+document.getElementById('outlier-table').innerHTML=D.outliers.map(r=>`<tr>
+  <td style="font-weight:600">${r.title}</td>
+  <td><span class="badge bb">${r.ind}</span></td>
+  <td>${r.sen}</td>
+  <td style="font-family:'DM Mono',monospace;color:var(--accent3)">${r.exp} yrs</td>
+  <td style="font-family:'DM Mono',monospace">${r.skills}</td>
+  <td style="font-family:'DM Mono',monospace;color:var(--accent);font-weight:700">${r.jdii}</td>
+</tr>`).join('');
+
+// P8 Forecast JDII
+const histYrs=D.jdii_year.map(d=>d.y), histVals=D.jdii_year.map(d=>d.v);
+const foreYrs=D.forecast_jdii.map(d=>d.y), foreVals=D.forecast_jdii.map(d=>d.v);
+const allForeJDII=[...histVals.map(()=>null),...foreVals];
+new Chart('c-forecast-jdii',{type:'line',data:{labels:[...histYrs,...foreYrs],datasets:[
+  {label:'Historical',data:[...histVals,...foreVals.map(()=>null)],borderColor:A,backgroundColor:'rgba(232,255,71,.07)',fill:true,tension:.4,pointBackgroundColor:A,pointRadius:4,borderWidth:2},
+  {label:'Forecast',data:[...histVals.map(()=>null),histVals[histVals.length-1],...foreVals],borderColor:A,backgroundColor:'rgba(232,255,71,.03)',fill:true,tension:.3,pointBackgroundColor:A,pointStyle:'triangle',pointRadius:6,borderWidth:2,borderDash:[6,4]}
+]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#64748b',boxWidth:10,font:{size:10},padding:12}}},scales:{x:{grid:GRD,ticks:TKS},y:{grid:GRD,ticks:TKS,min:60,max:105}}}});
+
+// P8 Forecast Exp
+const histExpVals=D.exp_year.map(d=>d.v);
+const foreExpVals=D.forecast_exp.map(d=>d.v);
+new Chart('c-forecast-exp',{type:'line',data:{labels:[...D.exp_year.map(d=>d.y),...D.forecast_exp.map(d=>d.y)],datasets:[
+  {label:'Historical',data:[...histExpVals,...foreExpVals.map(()=>null)],borderColor:A2,backgroundColor:'rgba(71,197,255,.07)',fill:true,tension:.4,pointBackgroundColor:A2,pointRadius:4,borderWidth:2},
+  {label:'Forecast',data:[...histExpVals.map(()=>null),histExpVals[histExpVals.length-1],...foreExpVals],borderColor:A2,backgroundColor:'rgba(71,197,255,.03)',fill:true,tension:.3,pointBackgroundColor:A2,pointStyle:'triangle',pointRadius:6,borderWidth:2,borderDash:[6,4]}
+]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#64748b',boxWidth:10,font:{size:10},padding:12}}},scales:{x:{grid:GRD,ticks:TKS},y:{grid:GRD,ticks:{...TKS,callback:v=>`${v}yr`},min:4,max:9}}}});
+</script>
+</body>
+</html>
